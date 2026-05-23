@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, CheckCircle } from "lucide-react"
+import { ArrowLeft, Loader2, CheckCircle, Upload } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 export default function CreatePage() {
@@ -13,11 +13,63 @@ export default function CreatePage() {
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const router = useRouter()
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file")
+      return
+    }
+
+    setIsUploading(true)
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const imageUrl = e.target?.result as string
+        
+        const supabase = createClient()
+        
+        const { error: insertError } = await supabase
+          .from("gallery")
+          .insert({
+            image_url: imageUrl,
+            title: file.name.replace(/\.[^/.]+$/, "") || "My Creation",
+          })
+
+        if (insertError) {
+          console.error("Upload error:", insertError)
+          setIsUploading(false)
+          alert("Failed to upload image. Please try again.")
+          return
+        }
+
+        setUploadSuccess(true)
+        
+        // Redirect to homepage after a brief success animation
+        setTimeout(() => {
+          router.push("/")
+        }, 1500)
+      }
+      
+      reader.onerror = () => {
+        setIsUploading(false)
+        alert("Failed to read file. Please try again.")
+      }
+      
+      reader.readAsDataURL(file)
+    } catch (err) {
+      console.error("Upload error:", err)
+      setIsUploading(false)
+      alert("Failed to upload image. Please try again.")
+    }
+  }
+
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      // Debug: Log all messages from iframe
-      console.log("[v0] Received postMessage:", event.data, "from:", event.origin)
-
       // Try to extract image from various possible message formats
       let imageUrl: string | null = null
       let title = "Untitled Break"
@@ -150,9 +202,19 @@ export default function CreatePage() {
             <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">Back to Gallery</span>
           </Link>
-          <h1 className="font-serif text-xl font-semibold tracking-tight text-foreground">
-            Create
-          </h1>
+          
+          {/* Save to Gallery Button */}
+          <label className="flex cursor-pointer items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-black transition-all hover:bg-amber-400 hover:scale-105 active:scale-95">
+            <Upload className="h-4 w-4" />
+            <span>Save to Gallery</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </label>
+          
           {/* Logo */}
           <Link href="/" className="transition-transform hover:scale-105">
             <Image
