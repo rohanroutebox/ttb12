@@ -15,9 +15,8 @@ export default function CreatePage() {
 
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      if (event.data && typeof event.data === "object") {
-        // Placeholder for structured logging if needed
-      }
+      // Debug: Log all messages from iframe
+      console.log("[v0] Received postMessage:", event.data, "from:", event.origin)
 
       // Try to extract image from various possible message formats
       let imageUrl: string | null = null
@@ -25,8 +24,31 @@ export default function CreatePage() {
       
       const data = event.data
 
-      if (!data || typeof data !== "object") {
+      if (!data) {
         return
+      }
+      
+      // Handle string data (could be a base64 image or JSON string)
+      if (typeof data === "string") {
+        // Check if it's a base64 image
+        if (data.startsWith("data:image")) {
+          imageUrl = data
+        } else {
+          // Try to parse as JSON
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.image_url || parsed.image || parsed.url || parsed.src) {
+              imageUrl = parsed.image_url || parsed.image || parsed.url || parsed.src
+              title = parsed.title || parsed.name || title
+            }
+          } catch {
+            // Not JSON, ignore
+          }
+        }
+      }
+      
+      if (typeof data !== "object") {
+        if (!imageUrl) return
       }
 
       // Check various possible structures
